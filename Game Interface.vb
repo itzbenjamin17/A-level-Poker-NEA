@@ -1,6 +1,4 @@
-﻿Imports System.Threading
-
-'Improve bluffing
+Imports System.Threading
 Public Class Game_Interface
     Const SmallBlind As Integer = 1
     Const BigBlind As Integer = 2
@@ -10,26 +8,6 @@ Public Class Game_Interface
     Const FourthHighestCard As Integer = 1
     Const FifthHighestCard As Integer = 0
     Public Shared ReadOnly Rand As New Random
-
-    'Adjusts the probability of betting, the higher the number, the lower chance of betting when bluffing
-    Const BetProbAdjuster As Integer = 320
-    'Adjusts the probability of calling, the higher the number, the lower chance of betting when bluffing
-    Const CallRaiseAdjuster As Integer = 180
-    'Adjusts the probability of bluffing, the higher number, the higher chance of bluffing
-    Const BluffProbAdjuster As Integer = 20
-    'Adjusts how much of the chips the bot bets, the higher the number the higher amount of chips it bets
-    Const BetAmountAdjuster As Single = 0.7
-    'Adjusts how much of the chips the bot raises, the higher the number the higher amount of chips it raises to
-    Const RaiseAmountAdjuster As Single = 0.25
-    'Adjusts how important the position on the round is, the higher the number the higher importance of being early in the round
-    Const BetChanceMultiplier As Integer = 15
-    'Min amount computers will bet
-    Const MinimumBetAmount As Integer = 5
-    'The higher the number the less impact odds of win has
-    Const BluffThreshold As Integer = 50
-    Const PercentageMultiplier As Integer = 100
-    'Controls the iterations on the monte carlo simulation
-    Const Iterations As Integer = 5000
     Private ReadOnly player_Name As String
     Private ReadOnly HiddenCard As New Bitmap(".\Resources\Empty Card.png")
     Public PlayerInput As String
@@ -52,16 +30,13 @@ Public Class Game_Interface
         Dim Players As New List(Of Player) From
             {Player, Computer1, Computer2, Computer3, Computer4}
         Dim Table As New List(Of Player)(Players)
-
         Dim GameOver As Boolean = False
-
         'Fist player in the table
         Dim Dealer As Integer = 0
         'Second player in the table and so on
         Dim SmallBlindPlayer As Integer = 1
         Dim BigBlindPlayer As Integer = 2
         Dim NextPlayer As Integer = 3
-
         While Not GameOver
             'Resetting the cards
             For Each item In Players
@@ -74,14 +49,12 @@ Public Class Game_Interface
             picCC5.Image = HiddenCard
             Application.DoEvents()
             'Checking if we have 1 player left
-
             If Table.Count = 1 Then
                 GameOver = True
                 ShowTheWin(Table(0))
                 MsgBox($"{Table(0).Name} is the last man standing, {Table(0).Name} wins!!!")
                 Exit While
             End If
-
             'creating new deck and shuffling it
             Dim deck As New Deck
             deck.Shuffle()
@@ -90,34 +63,29 @@ Public Class Game_Interface
                 deck.Deal2Cards(item.HoleCards)
             Next
             DisplayCards(Player)
-
             Dim CommunityCards As New List(Of Card)
             Dim GameState As String = "Pre-Flop"
             Dim CurrentHighestBet As Integer = BigBlind
-
             'my rules
             'if they cannot pay their blind they are forced to go all in and the game continues as normal for everyone else
             Table(SmallBlindPlayer).PaySmallBlind(GamePot)
             Table(BigBlindPlayer).PayBigBlind(GamePot)
             RefreshNumbers(Player, Computer1, Computer2, Computer3, Computer4, GamePot)
             Dim NumOfPlayers As Integer = Table.Count
-
             While True
                 'while anyone in the table hasnt matched the currenthighestbet and isnt all in and hasnt folded
                 While Table.Any(Function(item) (item.CurrentBet < CurrentHighestBet AndAlso item.HasFolded = False) AndAlso item.IsAllIn = False)
                     NextPlayerTurn(Table, NextPlayer, CurrentHighestBet, GamePot, GameState, CommunityCards, NumOfPlayers, Dealer)
                     RefreshNumbers(Player, Computer1, Computer2, Computer3, Computer4, GamePot)
                 End While
-
                 'New round so current bets are 0
                 For Each item In Table
                     item.ResetCurrentBet()
                 Next
                 'No one would have bet in the new round highest bet is 0
                 CurrentHighestBet = 0
-                HideComputerChoice()
+                ResetComputerChoices()
                 RefreshNumbers(Player, Computer1, Computer2, Computer3, Computer4, GamePot)
-
                 'Flop
                 GameState = "Flop"
                 'dealing table cards
@@ -128,7 +96,6 @@ Public Class Game_Interface
                 Application.DoEvents()
                 BettingRound(Table, NextPlayer, CurrentHighestBet, GamePot, GameState, CommunityCards, NumOfPlayers, Dealer, Player, Computer1, Computer2, Computer3, Computer4)
                 RefreshNumbers(Player, Computer1, Computer2, Computer3, Computer4, GamePot)
-
                 'Turn
                 GameState = "Turn"
                 deck.DealCard(CommunityCards)
@@ -136,7 +103,6 @@ Public Class Game_Interface
                 Application.DoEvents()
                 BettingRound(Table, NextPlayer, CurrentHighestBet, GamePot, GameState, CommunityCards, NumOfPlayers, Dealer, Player, Computer1, Computer2, Computer3, Computer4)
                 RefreshNumbers(Player, Computer1, Computer2, Computer3, Computer4, GamePot)
-
                 'River
                 GameState = "River"
                 deck.DealCard(CommunityCards)
@@ -144,7 +110,6 @@ Public Class Game_Interface
                 Application.DoEvents()
                 BettingRound(Table, NextPlayer, CurrentHighestBet, GamePot, GameState, CommunityCards, NumOfPlayers, Dealer, Player, Computer1, Computer2, Computer3, Computer4)
                 RefreshNumbers(Player, Computer1, Computer2, Computer3, Computer4, GamePot)
-
                 'Showdown
                 For Each item In Table
                     If item.HasFolded = False Then
@@ -158,7 +123,6 @@ Public Class Game_Interface
                         ShowTheOut(item)
                     End If
                 Next
-
                 Table.Clear()
                 'Add players who are not out into the table
                 For Each item In Players
@@ -169,34 +133,31 @@ Public Class Game_Interface
                 If Table.Count = 1 Then
                     Exit While
                 End If
-
                 'it was messing up NextRound so i have to put this here
                 For Each item In Players
                     item.ResetAttributes()
                     ResetFold(item)
                 Next
-
                 'Find the positions of the new roles
                 NextRound(NextPlayer, SmallBlindPlayer, BigBlindPlayer, Dealer, Table)
                 Exit While
             End While
         End While
     End Sub
-
     Public Sub BettingRound(ByRef Table As List(Of Player), ByRef NextPlayer As Integer, ByRef CurrentHighestBet As Integer, ByRef GamePot As Integer, ByRef GameState As String, ByRef CommunityCards As List(Of Card), ByRef NumOfPlayers As Integer, ByRef Dealer As Integer, ByRef Player As Player, ByRef Computer1 As Computer, ByRef Computer2 As Computer, ByRef Computer3 As Computer, ByRef Computer4 As Computer)
         Dim CurrentHighestBetCopy As Integer = CurrentHighestBet
-
-        'getting the next player (next active player to the left of dealer) we can do it this way because when we are doing turns
-        'we check if they have folded, so if this player cannot play for whatever reason it will go the the next player
-        If Dealer = Table.Count - 1 Then
-            NextPlayer = 0
-        Else
-            NextPlayer = Dealer + 1
-        End If
-
-        'at the start of each betting round after the preflop every active player has a turn
+        'getting the next player (next active player to the left of dealer)
+        NextPlayer = Dealer
+        GetNextPlayer(NextPlayer, Table)
+        'At the start of each betting round every one gets a first turn
+        Dim FirstPlayer As Integer = NextPlayer
+        Dim PastFirstPlayer As Boolean = False
         For Each item In Table
+            If NextPlayer = FirstPlayer AndAlso PastFirstPlayer Then
+                Exit For
+            End If
             NextPlayerTurn(Table, NextPlayer, CurrentHighestBet, GamePot, GameState, CommunityCards, NumOfPlayers, Dealer)
+            PastFirstPlayer = True
             CurrentHighestBetCopy = CurrentHighestBet
             RefreshNumbers(Player, Computer1, Computer2, Computer3, Computer4, GamePot)
         Next
@@ -206,33 +167,13 @@ Public Class Game_Interface
             CurrentHighestBetCopy = CurrentHighestBet
             RefreshNumbers(Player, Computer1, Computer2, Computer3, Computer4, GamePot)
         End While
-
         For Each item In Table
             item.ResetCurrentBet()
         Next
         CurrentHighestBet = 0
-        HideComputerChoice()
+        ResetComputerChoices()
         Application.DoEvents()
     End Sub
-    Public Shared Function GetComputerPosition(Computer As Computer, Table As List(Of Player), Dealer As Integer) As Integer
-        'Finding where the computer is placed on the table
-        Dim Count As Integer = 1
-        Dim position As Integer = Dealer + 1
-        If position = Table.Count Then
-            position = 0
-        End If
-        While True
-            If Table(position) Is Computer Then
-                Exit While
-            End If
-            position += 1
-            Count += 1
-            If position = Table.Count Then
-                position = 0
-            End If
-        End While
-        Return Count
-    End Function
     Public Sub NextPlayerTurn(ByRef Table As List(Of Player), ByRef NextPlayer As Integer, ByRef CurrentHighestBet As Integer, ByRef GamePot As Integer, GameState As String, CommunityCards As List(Of Card), Players As Integer, Dealer As Integer)
         Dim count As Integer = 0
         'Count is the amount of players that can have a turn
@@ -242,7 +183,6 @@ Public Class Game_Interface
                 count += 1
             End If
         Next
-
         'there was a case where i had an infinte loop when there were 2 players
         'and one went all in (bigblind) and the smallblind couldnt match the bet because of this so i added the AndAlso
         'the AndAlso checks to see if every player is either all in, out, folded or has matched the currentbet, before we can skip to the showdown
@@ -250,40 +190,33 @@ Public Class Game_Interface
             GetNextPlayer(NextPlayer, Table)
             Exit Sub
         End If
-
         If Not Table(NextPlayer).HasFolded Then 'Just making sure the next player hasn't folded
             If TypeOf Table(NextPlayer) Is Computer Then 'If the next player is a computer its a little different so we have to do this
                 Dim computer As Computer = CType(Table(NextPlayer), Computer)
                 Dim position As Integer = -1
-                If GameState <> "Pre-Flop" Then
-                    position = GetComputerPosition(computer, Table, Dealer)
-                End If
-
+                position = GetComputerPosition(computer, Table, Dealer)
                 computer.GetChoice(CurrentHighestBet, GamePot, GameState, CommunityCards, Players, position)
+                computer.DoChoice(CurrentHighestBet, GamePot)
                 'If they have folded we update their HasFolded and go to the next player
                 'show they have folded on the UI
                 If computer.ComputerChoice = "fold" Then
-                    computer.DoChoice(CurrentHighestBet, GamePot)
                     ShowTheFold(Table(NextPlayer))
                     GetNextPlayer(NextPlayer, Table)
                     Exit Sub
                 End If
-                computer.DoChoice(CurrentHighestBet, GamePot)
                 If computer.ComputerChoice <> "skip" Then
                     UpdateComputerChoice(computer)
                 End If
-
             ElseIf TypeOf Table(NextPlayer) Is Player Then
                 Dim Decision As Decision = GetPlayerChoice(Table(NextPlayer), CurrentHighestBet)
+                Table(NextPlayer).DoChoice(CurrentHighestBet, GamePot, Decision)
                 If Decision.Input = "fold" Then
-                    Table(NextPlayer).DoChoice(CurrentHighestBet, GamePot, Decision)
                     ShowTheFold(Table(NextPlayer))
                     GetNextPlayer(NextPlayer, Table)
                     PlayerInput = Nothing
                     PlayerInputNumber = Nothing
                     Exit Sub
                 End If
-                Table(NextPlayer).DoChoice(CurrentHighestBet, GamePot, Decision)
                 PlayerInput = Nothing
                 PlayerInputNumber = Nothing
             End If
@@ -311,33 +244,11 @@ Public Class Game_Interface
         End If
         Return Decision
     End Function
-    Public Sub UpdateComputerChoice(Computer As Computer)
-        Select Case Computer.Number
-            Case 1
-                TxtComputer1Choice.Text = Computer.ComputerChoice
-            Case 2
-                TxtComputer2Choice.Text = Computer.ComputerChoice
-            Case 3
-                TxtComputer3Choice.Text = Computer.ComputerChoice
-            Case 4
-                TxtComputer4Choice.Text = Computer.ComputerChoice
-        End Select
-        Application.DoEvents()
-    End Sub
-    Public Sub HideComputerChoice()
-        Thread.Sleep(200)
-        TxtComputer1Choice.Text = ""
-        TxtComputer2Choice.Text = ""
-        TxtComputer3Choice.Text = ""
-        TxtComputer4Choice.Text = ""
-        Application.DoEvents()
-    End Sub
     Public Function GetBetCheck(Player As Player) As Decision
         'Gets user decision from the UI
         Dim Decision As New Decision
         'Shows the two buttons
         ShowBetCheck()
-
         'Loop until one of the buttons is clicked
         Do Until Decision.Input <> ""
             Application.DoEvents() 'Allow the UI to respond
@@ -345,25 +256,21 @@ Public Class Game_Interface
             If PlayerInput = "check" Then
                 Decision.Input = "check"
             End If
-
             'Check if the Bet button is clicked
             If PlayerInput = "bet" Then
                 Decision.Input = "bet"
                 PlayerInputNumber = Val(TxtBetAmount.Text)
                 Decision.Amount = PlayerInputNumber
-
                 If Decision.Amount < BigBlind Then
                     txtPlayerChoice.Show()
                     txtPlayerChoice.Text = "The minimum bet for this game is 2 chips"
                     Decision.Input = ""
                     PlayerInput = ""
-
                 ElseIf Decision.Amount > Player.Chips Then
                     txtPlayerChoice.Show()
                     txtPlayerChoice.Text = "You do not have enough chips"
                     Decision.Input = ""
                     PlayerInput = ""
-
                 ElseIf Decision.Amount = 0 Then
                     txtPlayerChoice.Show()
                     txtPlayerChoice.Text = "You cannot bet 0"
@@ -387,19 +294,16 @@ Public Class Game_Interface
             If PlayerInput = "call" Then
                 Decision.Input = "call"
             End If
-
             'Check if the Raise button is clicked
             If PlayerInput = "raise" Then
                 Decision.Input = "raise"
                 PlayerInputNumber = Val(TxtRaiseAmount.Text)
                 Decision.Amount = PlayerInputNumber
-
                 If Decision.Amount < CurrentHighestBet Then
                     txtPlayerChoice.Show()
                     txtPlayerChoice.Text = ($"Raise amount less than the current highest bet ({CurrentHighestBet})")
                     Decision.Input = ""
                     PlayerInput = ""
-
                 ElseIf Decision.Amount > Player.Chips Then
                     txtPlayerChoice.Show()
                     txtPlayerChoice.Text = "You do not have enough chips"
@@ -415,6 +319,28 @@ Public Class Game_Interface
         HideCallRaiseFold()
         Return Decision
     End Function
+    Public Sub UpdateComputerChoice(Computer As Computer)
+        Select Case Computer.Number
+            Case 1
+                TxtComputer1Choice.Text = Computer.ComputerChoice
+            Case 2
+                TxtComputer2Choice.Text = Computer.ComputerChoice
+            Case 3
+                TxtComputer3Choice.Text = Computer.ComputerChoice
+            Case 4
+                TxtComputer4Choice.Text = Computer.ComputerChoice
+        End Select
+        Application.DoEvents()
+    End Sub
+    Public Sub ResetComputerChoices()
+        'Resets the labels after each round
+        Thread.Sleep(200)
+        TxtComputer1Choice.Text = ""
+        TxtComputer2Choice.Text = ""
+        TxtComputer3Choice.Text = ""
+        TxtComputer4Choice.Text = ""
+        Application.DoEvents()
+    End Sub
     Public Sub ShowBetCheck()
         BtnCheck.Show()
         BtnBet.Show()
@@ -601,7 +527,26 @@ Public Class Game_Interface
         End If
         Application.DoEvents()
     End Sub
-    Shared Sub GetNextPlayer(ByRef NextPlayer As Integer, Table As List(Of Player))
+    Public Shared Function GetComputerPosition(Computer As Computer, Table As List(Of Player), Dealer As Integer) As Integer
+        'Finding where the computer is placed on the table
+        Dim Count As Integer = 1
+        Dim position As Integer = Dealer + 1
+        If position = Table.Count Then
+            position = 0
+        End If
+        While True
+            If Table(position) Is Computer Then
+                Exit While
+            End If
+            position += 1
+            Count += 1
+            If position = Table.Count Then
+                position = 0
+            End If
+        End While
+        Return Count
+    End Function
+    Public Shared Sub GetNextPlayer(ByRef NextPlayer As Integer, Table As List(Of Player))
         'Infinite loop to find the next player who hasnt folded and they are the next player
         While True
             NextPlayer += 1
@@ -641,7 +586,6 @@ Public Class Game_Interface
                     Exit While
                 End If
             End While
-
             SmallBlindPlayer = Dealer + 1
             While True
                 If SmallBlindPlayer > Table.Count - 1 Then
@@ -654,7 +598,6 @@ Public Class Game_Interface
                 End If
                 SmallBlindPlayer += 1
             End While
-
             BigBlindPlayer = SmallBlindPlayer + 1
             While True
                 If BigBlindPlayer > Table.Count - 1 Then
@@ -667,7 +610,6 @@ Public Class Game_Interface
                 End If
                 BigBlindPlayer += 1
             End While
-
             NextPlayer = BigBlindPlayer + 1
             While True
                 If NextPlayer > Table.Count - 1 Then
@@ -685,19 +627,15 @@ Public Class Game_Interface
     Public Shared Sub GetWinner(Table As List(Of Player), ByRef Pot As Integer, CommunityCards As List(Of Card))
         Dim ShowDownPlayers As New List(Of Player)
         Dim Winners As New List(Of Player)
-
-        'there was a case where a player had folded but still won so i have to check they havent folded here
         For Each Player In Table
             If Player.HasFolded = False Then
                 ShowDownPlayers.Add(Player)
             End If
         Next
-
         For Each Player In ShowDownPlayers
             Player.EvaluateHand(CommunityCards)
         Next
-
-        'The Player with the greatest handvalue will be at the end
+        'The Player with the best handvalue will be at the beginning
         SortPlayers(ShowDownPlayers)
         Dim BestHandValue As Integer = ShowDownPlayers(0).HandValue
         For Each Player In ShowDownPlayers
@@ -705,23 +643,34 @@ Public Class Game_Interface
                 Winners.Add(Player)
             End If
         Next
-
         If Winners.Count = 1 Then
             MsgBox($"{Winners(0).Name} has a {pokerHandValues(Winners(0).HandValue)}")
-
             MsgBox($"{Winners(0).Name} wins!!")
             Winners(0).Chips += Pot
             Pot = 0
-
         Else
-            Dim Winner As List(Of Player) = Tiebreak(Winners, BestHandValue)
-            If Winner.Count = 1 Then
+            Dim hands As New List(Of List(Of Card))
+            For Each p In Winners
+                hands.Add(p.BestHand)
+            Next
+            Dim WinnerHands As List(Of List(Of Card)) = Tiebreak(hands, BestHandValue)
+            Dim Winner As New List(Of Player)
+            If WinnerHands.Count = 1 Then
+                For Each p In Winners
+                    If WinnerHands(0) Is p.BestHand Then
+                        Winner.Add(p)
+                    End If
+                Next
                 MsgBox($"{Winner(0).Name} has the best {pokerHandValues(Winner(0).HandValue)}")
                 MsgBox($"{Winner(0).Name} wins!!")
                 Winner(0).Chips += Pot
                 Pot = 0
-
             Else
+                For Each p In Winners
+                    If WinnerHands.Contains(p.BestHand) Then
+                        Winner.Add(p)
+                    End If
+                Next
                 Dim WinnersString As String = ""
                 For p = 0 To Winner.Count - 2
                     WinnersString += Winner(p).Name + "," + " "
@@ -739,422 +688,377 @@ Public Class Game_Interface
             End If
         End If
     End Sub
-    Public Shared Function Tiebreak(WinnersList As List(Of Player), BestHandValue As Integer) As List(Of Player)
-        Dim Winner As New List(Of Player)
+    Public Shared Function Tiebreak(WinnerHands As List(Of List(Of Card)), BestHandValue As Integer) As List(Of List(Of Card))
+        Dim WinningHand As New List(Of List(Of Card))
         Select Case BestHandValue
             Case 1 'Royal Flush
-                Return WinnersList
-
-            Case 2 'Straight Flush
+                Return WinningHand
+            Case 2, 6 'Straight Flush and normal Flush
                 Dim HighestValue As Integer = 0
-                For Each Player In WinnersList
-                    If Player.BestHand(HighestCard).Value > HighestValue Then
-                        HighestValue = Player.BestHand(HighestCard).Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-                    ElseIf Player.BestHand(HighestCard).Value = HighestValue Then
-                        Winner.Add(Player)
-                    End If
-                Next
-
+                GetBestStraight(WinnerHands, WinningHand, HighestValue)
             Case 3 'Four of a Kind
                 Dim HighestKind As Integer = 0
-                Dim KickerCard As New Card
                 Dim HighestKicker As Integer
-                Dim FourOfAKindGroup As List(Of Card)
-                For Each Player In WinnersList
-                    FourOfAKindGroup = Player.BestHand.
-                        GroupBy(Function(card) card.Rank).
-                        OrderByDescending(Function(group) group.Count).
-                        First.
-                        ToList
-                    KickerCard = Player.BestHand.Except(FourOfAKindGroup).Single
-                    If FourOfAKindGroup(0).Value > HighestKind Then
-                        HighestKind = FourOfAKindGroup(0).Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-                    ElseIf FourOfAKindGroup(0).Value = HighestKind Then
-                        If KickerCard.Value > HighestKicker Then
-                            HighestKicker = KickerCard.Value
-                            Winner.Clear()
-                            Winner.Add(Player)
-                        ElseIf KickerCard.Value = HighestKicker Then
-                            Winner.Add(Player)
-                        End If
-                    End If
-                Next
-
+                GetBestFourOf(WinnerHands, WinningHand, HighestKind, HighestKicker)
             Case 4 'FullHouse
-                Dim ThreeOfKind As New List(Of Card)
-                Dim TwoOfKind As New List(Of Card)
                 Dim Highest3 As Integer = 0
                 Dim Highest2 As Integer = 0
-                For Each Player In WinnersList
-                    ThreeOfKind = Player.BestHand.GroupBy(Function(card) card.Rank).
-                        OrderByDescending(Function(group) group.Count).
-                        First.
-                        ToList
-                    TwoOfKind = Player.BestHand.Except(ThreeOfKind).ToList
-                    If ThreeOfKind(0).Value > Highest3 Then
-                        Highest3 = ThreeOfKind(0).Value
-                        Highest2 = TwoOfKind(0).Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-                    ElseIf ThreeOfKind(0).Value = Highest3 Then
-                        If TwoOfKind(0).Value > Highest2 Then
-                            Highest2 = TwoOfKind(0).Value
-                            Winner.Clear()
-                            Winner.Add(Player)
-                        ElseIf TwoOfKind(0).Value = Highest2 Then
-                            Winner.Add(Player)
-                        End If
-                    End If
-                Next
-
+                GetBestFullHouse(WinnerHands, WinningHand, Highest3, Highest2)
             Case 5 'Flush
-                'Meaning the value of the highest card, second highest card etc etc
                 Dim HighestValue As Integer = 0
-                Dim FifthHighestValue As Integer = 0
                 Dim SecondHighestValue As Integer = 0
                 Dim ThirdHighestValue As Integer = 0
                 Dim FourthHighestValue As Integer = 0
-                For Each Player In WinnersList
-                    If Player.BestHand(HighestCard).Value > HighestValue Then
-                        HighestValue = Player.BestHand(HighestCard).Value
-                        SecondHighestValue = Player.BestHand(SecondHighestCard).Value
-                        ThirdHighestValue = Player.BestHand(ThirdHighestCard).Value
-                        FourthHighestValue = Player.BestHand(FourthHighestCard).Value
-                        FifthHighestValue = Player.BestHand(FifthHighestCard).Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-
-                    ElseIf Player.BestHand(HighestCard).Value = HighestValue Then
-                        If Player.BestHand(SecondHighestCard).Value > SecondHighestValue Then
-                            HighestValue = Player.BestHand(HighestCard).Value
-                            SecondHighestValue = Player.BestHand(SecondHighestCard).Value
-                            ThirdHighestValue = Player.BestHand(ThirdHighestCard).Value
-                            FourthHighestValue = Player.BestHand(FourthHighestCard).Value
-                            FifthHighestValue = Player.BestHand(FifthHighestCard).Value
-                            Winner.Clear()
-                            Winner.Add(Player)
-
-                        ElseIf Player.BestHand(SecondHighestCard).Value = SecondHighestValue Then
-                            If Player.BestHand(ThirdHighestCard).Value > ThirdHighestValue Then
-                                HighestValue = Player.BestHand(HighestCard).Value
-                                SecondHighestValue = Player.BestHand(SecondHighestCard).Value
-                                ThirdHighestValue = Player.BestHand(ThirdHighestCard).Value
-                                FourthHighestValue = Player.BestHand(FourthHighestCard).Value
-                                FifthHighestValue = Player.BestHand(FifthHighestCard).Value
-                                Winner.Clear()
-                                Winner.Add(Player)
-
-                            ElseIf Player.BestHand(ThirdHighestCard).Value = ThirdHighestValue Then
-                                If Player.BestHand(FourthHighestCard).Value > FourthHighestValue Then
-                                    HighestValue = Player.BestHand(HighestCard).Value
-                                    SecondHighestValue = Player.BestHand(SecondHighestCard).Value
-                                    ThirdHighestValue = Player.BestHand(ThirdHighestCard).Value
-                                    FourthHighestValue = Player.BestHand(FourthHighestCard).Value
-                                    FifthHighestValue = Player.BestHand(FifthHighestCard).Value
-                                    Winner.Clear()
-                                    Winner.Add(Player)
-
-                                ElseIf Player.BestHand(FourthHighestCard).Value = FourthHighestValue Then
-                                    If Player.BestHand(FifthHighestCard).Value > FifthHighestValue Then
-                                        HighestValue = Player.BestHand(HighestCard).Value
-                                        SecondHighestValue = Player.BestHand(SecondHighestCard).Value
-                                        ThirdHighestValue = Player.BestHand(ThirdHighestCard).Value
-                                        FourthHighestValue = Player.BestHand(FourthHighestCard).Value
-                                        FifthHighestValue = Player.BestHand(FifthHighestCard).Value
-                                        Winner.Clear()
-                                        Winner.Add(Player)
-
-                                    ElseIf Player.BestHand(FifthHighestCard).Value = FifthHighestValue Then
-                                        Winner.Add(Player)
-                                    End If
-                                End If
-                            End If
-                        End If
-                    End If
-                Next
-
-            Case 6 'Straight
-                Dim HighestValue As Integer = 0
-                For Each Player In WinnersList
-                    If Player.BestHand(HighestCard).Value > HighestValue Then
-                        HighestValue = Player.BestHand(HighestCard).Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-                    ElseIf Player.BestHand(HighestCard).Value = HighestValue Then
-                        Winner.Add(Player)
-                    End If
-                Next
-
+                Dim FifthHighestValue As Integer = 0
+                GetBestFlush(WinnerHands, WinningHand, HighestValue, SecondHighestValue, ThirdHighestValue, FourthHighestValue, FifthHighestValue)
             Case 7 'Three of a Kind
-                Dim ThreeOfKindCards As List(Of Card)
-                Dim KickerCards As List(Of Card)
-                Dim HighestKickerCard As New Card
-                Dim SecondHighestKickerCard As New Card
                 Dim Highest3Value As Integer = 0
                 Dim HighestKicker As Integer = 0
                 Dim SecondHighestKicker As Integer = 0
-
-                For Each Player In WinnersList
-                    ThreeOfKindCards = Player.BestHand.GroupBy(Function(card) card.Rank).
-        OrderByDescending(Function(group) group.Count).
-        Where(Function(group) group.Count() >= 3).
-        SelectMany(Function(group) group.Take(3)).ToList()
-                    KickerCards = Player.BestHand.Except(ThreeOfKindCards).ToList()
-                    SortCards(KickerCards)
-
-                    If ThreeOfKindCards(0).Value > Highest3Value Then
-                        Highest3Value = ThreeOfKindCards(0).Value
-                        HighestKickerCard = KickerCards(1)
-                        HighestKicker = HighestKickerCard.Value
-                        SecondHighestKickerCard = KickerCards(0)
-                        SecondHighestKicker = KickerCards(0).Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-
-                    ElseIf ThreeOfKindCards(0).Value = Highest3Value Then
-                        If KickerCards(1).Value > HighestKicker Then
-                            Highest3Value = ThreeOfKindCards(0).Value
-                            HighestKickerCard = KickerCards(1)
-                            HighestKicker = HighestKickerCard.Value
-                            SecondHighestKickerCard = KickerCards(0)
-                            SecondHighestKicker = KickerCards(0).Value
-                            Winner.Clear()
-                            Winner.Add(Player)
-
-                        ElseIf KickerCards(1).Value = HighestKicker Then
-                            If KickerCards(0).Value > SecondHighestKicker Then
-                                Highest3Value = ThreeOfKindCards(0).Value
-                                HighestKickerCard = KickerCards(1)
-                                HighestKicker = HighestKickerCard.Value
-                                SecondHighestKickerCard = KickerCards(0)
-                                SecondHighestKicker = KickerCards(0).Value
-                                Winner.Clear()
-                                Winner.Add(Player)
-
-                            ElseIf KickerCards(0).Value = SecondHighestKicker Then
-                                Winner.Clear()
-                            End If
-                        End If
-                    End If
-                Next
-
+                Dim HighestKickerCard As New Card
+                Dim SecondHighestKickerCard As New Card
+                GetBestThreeOf(WinnerHands, WinningHand, Highest3Value, HighestKicker, SecondHighestKicker, HighestKickerCard, SecondHighestKickerCard)
             Case 8 'Two Pair
-                'Pair1 has the higher pair, Kicker contains the non pair card
-                Dim Pair1 As New List(Of Card)
                 Dim HighestPairVal As Integer = 0
-                Dim Pair2 As New List(Of Card)
                 Dim SecondHighestPairVal As Integer = 0
-                Dim Kicker As New Card
                 Dim HighestKickerVal = 0
-                Dim TwoPairGroups As IEnumerable(Of IGrouping(Of String, Card))
-                Dim pair1Rank As String
-                Dim pair2Rank As String
-
-                For Each Player In WinnersList
-                    TwoPairGroups = Player.BestHand.
-                        GroupBy(Function(card) card.Rank).
-        Where(Function(group) group.Count() = 2).
-        OrderByDescending(Function(group) group.Key)
-
-                    TwoPairGroups = TwoPairGroups.OrderByDescending(Function(group) CardValues(group.Key(0)))
-                    pair1Rank = TwoPairGroups.First().Key
-                    pair2Rank = TwoPairGroups.Skip(1).First().Key
-                    Kicker = Player.BestHand.First(Function(card) card.Rank <> pair1Rank AndAlso card.Rank <> pair2Rank)
-                    Pair1 = TwoPairGroups.First().ToList()
-                    Pair2 = TwoPairGroups.Skip(1).First().ToList()
-
-                    If Pair1(0).Value > HighestPairVal Then
-                        HighestPairVal = Pair1(0).Value
-                        SecondHighestPairVal = Pair2(0).Value
-                        HighestKickerVal = Kicker.Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-
-                    ElseIf Pair1(0).Value = HighestPairVal Then
-                        If Pair2(0).Value > SecondHighestPairVal Then
-                            HighestPairVal = Pair1(0).Value
-                            SecondHighestPairVal = Pair2(0).Value
-                            HighestKickerVal = Kicker.Value
-                            Winner.Clear()
-                            Winner.Add(Player)
-
-                        ElseIf Pair2(0).Value = SecondHighestPairVal Then
-                            If Kicker.Value > HighestKickerVal Then
-                                HighestPairVal = Pair1(0).Value
-                                SecondHighestPairVal = Pair2(0).Value
-                                HighestKickerVal = Kicker.Value
-                                Winner.Clear()
-                                Winner.Add(Player)
-                            ElseIf Kicker.Value = HighestKickerVal Then
-                                Winner.Add(Player)
-                            End If
-                        End If
-                    End If
-                Next
-
+                GetBestTwoPair(WinnerHands, WinningHand, HighestPairVal, SecondHighestPairVal, HighestKickerVal)
             Case 9 'One Pair
-                Dim Pair As New List(Of Card)
-                Dim NonPairs As New List(Of Card)
-                Dim HighestKicker, SecondHighestKicker, ThirdHighestKicker As New Card
                 Dim HighestPairVal As Integer = 0
                 Dim HighestKickerVal As Integer = 0
                 Dim SecondHighestKickerVal As Integer = 0
                 Dim ThirdHighestKickerVal As Integer = 0
-
-                For Each Player In WinnersList
-                    Pair = Player.BestHand.GroupBy(Function(card) card.Rank).
-                        OrderByDescending(Function(group) group.Count).
-                        Where(Function(group) group.Count() = 2).
-                        SelectMany(Function(group) group).ToList()
-                    NonPairs = Player.BestHand.Except(Pair).ToList
-                    SortCards(NonPairs)
-                    HighestKicker = NonPairs(2)
-                    SecondHighestKicker = NonPairs(1)
-                    ThirdHighestKicker = NonPairs(0)
-
-                    If Pair(0).Value > HighestPairVal Then
-                        HighestPairVal = Pair(0).Value
-                        HighestKickerVal = HighestKicker.Value
-                        SecondHighestKickerVal = SecondHighestKicker.Value
-                        ThirdHighestKickerVal = ThirdHighestKicker.Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-
-                    ElseIf Pair(0).Value = HighestPairVal Then
-                        If HighestKicker.Value > HighestKickerVal Then
-                            HighestPairVal = Pair(0).Value
-                            HighestKickerVal = HighestKicker.Value
-                            SecondHighestKickerVal = SecondHighestKicker.Value
-                            ThirdHighestKickerVal = ThirdHighestKicker.Value
-                            Winner.Clear()
-                            Winner.Add(Player)
-
-                        ElseIf HighestKicker.Value = HighestKickerVal Then
-                            If SecondHighestKicker.Value > SecondHighestKickerVal Then
-                                HighestPairVal = Pair(0).Value
-                                HighestKickerVal = HighestKicker.Value
-                                SecondHighestKickerVal = SecondHighestKicker.Value
-                                ThirdHighestKickerVal = ThirdHighestKicker.Value
-                                Winner.Clear()
-                                Winner.Add(Player)
-
-                            ElseIf SecondHighestKicker.Value = SecondHighestKickerVal Then
-                                If ThirdHighestKicker.Value > ThirdHighestKickerVal Then
-                                    HighestPairVal = Pair(0).Value
-                                    HighestKickerVal = HighestKicker.Value
-                                    SecondHighestKickerVal = SecondHighestKicker.Value
-                                    ThirdHighestKickerVal = ThirdHighestKicker.Value
-                                    Winner.Clear()
-                                    Winner.Add(Player)
-
-                                ElseIf ThirdHighestKicker.Value = ThirdHighestKickerVal Then
-                                    Winner.Add(Player)
-                                End If
-                            End If
-                        End If
-                    End If
-                Next
-
+                GetBestOnePair(WinnerHands, WinningHand, HighestPairVal, HighestKickerVal, SecondHighestKickerVal, ThirdHighestKickerVal)
             Case 10 'High Card
                 Dim HighestCardValue As Integer = 0
                 Dim SecondHighestCardValue As Integer = 0
                 Dim ThirdHighestCardValue As Integer = 0
                 Dim FourthHighestCardValue As Integer = 0
                 Dim FifthHighestCardValue As Integer = 0
-
-                For Each Player In WinnersList
-                    If Player.BestHand(HighestCard).Value > HighestCardValue Then
-                        HighestCardValue = Player.BestHand(HighestCard).Value
-                        SecondHighestCardValue = Player.BestHand(SecondHighestCard).Value
-                        ThirdHighestCardValue = Player.BestHand(ThirdHighestCard).Value
-                        FourthHighestCardValue = Player.BestHand(FourthHighestCard).Value
-                        FifthHighestCardValue = Player.BestHand(FifthHighestCard).Value
-                        Winner.Clear()
-                        Winner.Add(Player)
-
-                    ElseIf Player.BestHand(HighestCard).Value = HighestCardValue Then
-                        If Player.BestHand(SecondHighestCard).Value > SecondHighestCardValue Then
-                            HighestCardValue = Player.BestHand(HighestCard).Value
-                            SecondHighestCardValue = Player.BestHand(SecondHighestCard).Value
-                            ThirdHighestCardValue = Player.BestHand(ThirdHighestCard).Value
-                            FourthHighestCardValue = Player.BestHand(FourthHighestCard).Value
-                            FifthHighestCardValue = Player.BestHand(FifthHighestCard).Value
-                            Winner.Clear()
-                            Winner.Add(Player)
-
-                        ElseIf Player.BestHand(SecondHighestCard).Value = SecondHighestCardValue Then
-                            If Player.BestHand(ThirdHighestCard).Value > ThirdHighestCardValue Then
-                                HighestCardValue = Player.BestHand(HighestCard).Value
-                                SecondHighestCardValue = Player.BestHand(SecondHighestCard).Value
-                                ThirdHighestCardValue = Player.BestHand(ThirdHighestCard).Value
-                                FourthHighestCardValue = Player.BestHand(FourthHighestCard).Value
-                                FifthHighestCardValue = Player.BestHand(FifthHighestCard).Value
-                                Winner.Clear()
-                                Winner.Add(Player)
-
-                            ElseIf Player.BestHand(ThirdHighestCard).Value = ThirdHighestCardValue Then
-                                If Player.BestHand(FourthHighestCard).Value > FourthHighestCardValue Then
-                                    HighestCardValue = Player.BestHand(HighestCard).Value
-                                    SecondHighestCardValue = Player.BestHand(SecondHighestCard).Value
-                                    ThirdHighestCardValue = Player.BestHand(ThirdHighestCard).Value
-                                    FourthHighestCardValue = Player.BestHand(FourthHighestCard).Value
-                                    FifthHighestCardValue = Player.BestHand(FifthHighestCard).Value
-                                    Winner.Clear()
-                                    Winner.Add(Player)
-
-                                ElseIf Player.BestHand(FourthHighestCard).Value = FourthHighestCardValue Then
-                                    If Player.BestHand(FifthHighestCard).Value > FifthHighestCardValue Then
-                                        HighestCardValue = Player.BestHand(HighestCard).Value
-                                        SecondHighestCardValue = Player.BestHand(SecondHighestCard).Value
-                                        ThirdHighestCardValue = Player.BestHand(ThirdHighestCard).Value
-                                        FourthHighestCardValue = Player.BestHand(FourthHighestCard).Value
-                                        FifthHighestCardValue = Player.BestHand(FifthHighestCard).Value
-                                        Winner.Clear()
-                                        Winner.Add(Player)
-
-                                    ElseIf Player.BestHand(FifthHighestCard).Value = FifthHighestCardValue Then
-                                        Winner.Add(Player)
-                                    End If
-                                End If
+                GetBestHighCard(WinnerHands, WinningHand, HighestCardValue, SecondHighestCardValue, ThirdHighestCardValue, FourthHighestCardValue, FifthHighestCardValue)
+        End Select
+        Return WinningHand
+    End Function
+    Public Shared Sub GetBestFourOf(WinnerHands As List(Of List(Of Card)), ByRef WinningHand As List(Of List(Of Card)), ByRef HighestKind As Integer, ByRef HighestKicker As Integer)
+        'The highest Four of a kind wins, if it is the same the highest kicker wins
+        Dim FourOfAKindGroup As New List(Of Card)
+        Dim KickerCard As New Card
+        For Each Hand In WinnerHands
+            FourOfAKindGroup = Hand.
+                        GroupBy(Function(card) card.Rank).
+                        OrderByDescending(Function(group) group.Count).
+                        First().
+                        ToList()
+            KickerCard = Hand.Except(FourOfAKindGroup).Single()
+            If FourOfAKindGroup(0).Value > HighestKind Then
+                HighestKind = FourOfAKindGroup(0).Value
+                WinningHand.Clear()
+                WinningHand.Add(Hand)
+            ElseIf FourOfAKindGroup(0).Value = HighestKind Then
+                If KickerCard.Value > HighestKicker Then
+                    HighestKicker = KickerCard.Value
+                    WinningHand.Clear()
+                    WinningHand.Add(Hand)
+                ElseIf KickerCard.Value = HighestKicker Then
+                    WinningHand.Add(Hand)
+                End If
+            End If
+        Next
+    End Sub
+    Public Shared Sub GetBestFullHouse(WinnerHands As List(Of List(Of Card)), ByRef WinningHand As List(Of List(Of Card)), ByRef Highest3 As Integer, ByRef Highest2 As Integer)
+        'The highest 3 of a kind wins, if they are the same the highest 2 of a kind wins
+        Dim ThreeOfKind As New List(Of Card)
+        Dim TwoOfKind As New List(Of Card)
+        For Each Hand In WinnerHands
+            ThreeOfKind = Hand.GroupBy(Function(card) card.Rank).
+                        OrderByDescending(Function(group) group.Count).
+                        First().
+                        ToList()
+            TwoOfKind = Hand.Except(ThreeOfKind).ToList()
+            If ThreeOfKind(0).Value > Highest3 Then
+                Highest3 = ThreeOfKind(0).Value
+                Highest2 = TwoOfKind(0).Value
+                WinningHand.Clear()
+                WinningHand.Add(Hand)
+            ElseIf ThreeOfKind(0).Value = Highest3 Then
+                If TwoOfKind(0).Value > Highest2 Then
+                    Highest2 = TwoOfKind(0).Value
+                    WinningHand.Clear()
+                    WinningHand.Add(Hand)
+                ElseIf TwoOfKind(0).Value = Highest2 Then
+                    WinningHand.Add(Hand)
+                End If
+            End If
+        Next
+    End Sub
+    Public Shared Sub GetBestFlush(WinnerHands As List(Of List(Of Card)), ByRef WinningHand As List(Of List(Of Card)), ByRef HighestValue As Integer, ByRef SecondHighestValue As Integer, ByRef ThirdHighestValue As Integer, ByRef FourthHighestValue As Integer, ByRef FifthHighestValue As Integer)
+        'The highest value out of all flushes wins, if they are the same the second highest wins and so on 
+        For Each Hand In WinnerHands
+            If Hand(HighestCard).Value > HighestValue Then
+                HighestValue = Hand(HighestCard).Value
+                SecondHighestValue = Hand(SecondHighestCard).Value
+                ThirdHighestValue = Hand(ThirdHighestCard).Value
+                FourthHighestValue = Hand(FourthHighestCard).Value
+                FifthHighestValue = Hand(FifthHighestCard).Value
+                WinningHand.Clear()
+                WinningHand.Add(Hand)
+            ElseIf Hand(HighestCard).Value = HighestValue Then
+                If Hand(SecondHighestCard).Value > SecondHighestValue Then
+                    HighestValue = Hand(HighestCard).Value
+                    SecondHighestValue = Hand(SecondHighestCard).Value
+                    ThirdHighestValue = Hand(ThirdHighestCard).Value
+                    FourthHighestValue = Hand(FourthHighestCard).Value
+                    FifthHighestValue = Hand(FifthHighestCard).Value
+                    WinningHand.Clear()
+                    WinningHand.Add(Hand)
+                ElseIf Hand(SecondHighestCard).Value = SecondHighestValue Then
+                    If Hand(ThirdHighestCard).Value > ThirdHighestValue Then
+                        HighestValue = Hand(HighestCard).Value
+                        SecondHighestValue = Hand(SecondHighestCard).Value
+                        ThirdHighestValue = Hand(ThirdHighestCard).Value
+                        FourthHighestValue = Hand(FourthHighestCard).Value
+                        FifthHighestValue = Hand(FifthHighestCard).Value
+                        WinningHand.Clear()
+                        WinningHand.Add(Hand)
+                    ElseIf Hand(ThirdHighestCard).Value = ThirdHighestValue Then
+                        If Hand(FourthHighestCard).Value > FourthHighestValue Then
+                            HighestValue = Hand(HighestCard).Value
+                            SecondHighestValue = Hand(SecondHighestCard).Value
+                            ThirdHighestValue = Hand(ThirdHighestCard).Value
+                            FourthHighestValue = Hand(FourthHighestCard).Value
+                            FifthHighestValue = Hand(FifthHighestCard).Value
+                            WinningHand.Clear()
+                            WinningHand.Add(Hand)
+                        ElseIf Hand(FourthHighestCard).Value = FourthHighestValue Then
+                            If Hand(FifthHighestCard).Value > FifthHighestValue Then
+                                HighestValue = Hand(HighestCard).Value
+                                SecondHighestValue = Hand(SecondHighestCard).Value
+                                ThirdHighestValue = Hand(ThirdHighestCard).Value
+                                FourthHighestValue = Hand(FourthHighestCard).Value
+                                FifthHighestValue = Hand(FifthHighestCard).Value
+                                WinningHand.Clear()
+                                WinningHand.Add(Hand)
+                            ElseIf Hand(FifthHighestCard).Value = FifthHighestValue Then
+                                WinningHand.Add(Hand)
                             End If
                         End If
                     End If
-                Next
-        End Select
-        Return Winner
-    End Function
-
-    Public Shared ReadOnly pokerHandValues As New Dictionary(Of Integer, String) From {
-        {1, "Royal Flush"},
-        {2, "Straight Flush"},
-        {3, "Four of a Kind"},
-        {4, "Full House"},
-        {5, "Flush"},
-        {6, "Straight"},
-        {7, "Three of a Kind"},
-        {8, "Two Pair"},
-        {9, "One Pair"},
-        {10, "High Card"}
-    }
-    Public Shared ReadOnly CardValues As New Dictionary(Of String, Integer) From {
-    {"2", 2},
-    {"3", 3},
-    {"4", 4},
-    {"5", 5},
-    {"6", 6},
-    {"7", 7},
-    {"8", 8},
-    {"9", 9},
-    {"1", 10},
-    {"J", 11},
-    {"Q", 12},
-    {"K", 13},
-    {"A", 14}
-}
+                End If
+            End If
+        Next
+    End Sub
+    Public Shared Sub GetBestStraight(WinnerHands As List(Of List(Of Card)), ByRef WinningHand As List(Of List(Of Card)), ByRef HighestValue As Integer)
+        'The highest value card found in all the straights wins
+        For Each Hand In WinnerHands
+            If Hand(HighestCard).Value > HighestValue Then
+                HighestValue = Hand(HighestCard).Value
+                WinningHand.Clear()
+                WinningHand.Add(Hand)
+            ElseIf Hand(HighestCard).Value = HighestValue Then
+                WinningHand.Add(Hand)
+            End If
+        Next
+    End Sub
+    Public Shared Sub GetBestThreeOf(WinnerHands As List(Of List(Of Card)), ByRef WinningHand As List(Of List(Of Card)), ByRef Highest3Value As Integer, ByRef HighestKicker As Integer, ByRef SecondHighestKicker As Integer, ByRef HighestKickerCard As Card, ByRef SecondHighestKickerCard As Card)
+        'The highest 3 of a kind wins, if they are the same the highest kicker cards wins if they are the same the highest of the other kicker wins
+        For Each Hand In WinnerHands
+            Dim ThreeOfKindCards As List(Of Card)
+            Dim KickerCards As List(Of Card)
+            ThreeOfKindCards = Hand.GroupBy(Function(card) card.Rank).
+        OrderByDescending(Function(group) group.Count).
+        Where(Function(group) group.Count() >= 3).
+        SelectMany(Function(group) group.Take(3)).ToList()
+            KickerCards = Hand.Except(ThreeOfKindCards).ToList()
+            SortCards(KickerCards)
+            If ThreeOfKindCards(0).Value > Highest3Value Then
+                Highest3Value = ThreeOfKindCards(0).Value
+                HighestKickerCard = KickerCards(1)
+                HighestKicker = HighestKickerCard.Value
+                SecondHighestKickerCard = KickerCards(0)
+                SecondHighestKicker = KickerCards(0).Value
+                WinningHand.Clear()
+                WinningHand.Add(Hand)
+            ElseIf ThreeOfKindCards(0).Value = Highest3Value Then
+                If KickerCards(1).Value > HighestKicker Then
+                    Highest3Value = ThreeOfKindCards(0).Value
+                    HighestKickerCard = KickerCards(1)
+                    HighestKicker = HighestKickerCard.Value
+                    SecondHighestKickerCard = KickerCards(0)
+                    SecondHighestKicker = KickerCards(0).Value
+                    WinningHand.Clear()
+                    WinningHand.Add(Hand)
+                ElseIf KickerCards(1).Value = HighestKicker Then
+                    If KickerCards(0).Value > SecondHighestKicker Then
+                        Highest3Value = ThreeOfKindCards(0).Value
+                        HighestKickerCard = KickerCards(1)
+                        HighestKicker = HighestKickerCard.Value
+                        SecondHighestKickerCard = KickerCards(0)
+                        SecondHighestKicker = KickerCards(0).Value
+                        WinningHand.Clear()
+                        WinningHand.Add(Hand)
+                    ElseIf KickerCards(0).Value = SecondHighestKicker Then
+                        WinningHand.Add(Hand)
+                    End If
+                End If
+            End If
+        Next
+    End Sub
+    Public Shared Sub GetBestTwoPair(WinnerHands As List(Of List(Of Card)), ByRef WinningHand As List(Of List(Of Card)), ByRef HighestPairVal As Integer, ByRef SecondHighestPairVal As Integer, ByRef HighestKickerVal As Integer)
+        'The highest pair wins, if it's the same the other pair is used, if that is the same the kicker card is used
+        Dim TwoPairGroups As IEnumerable(Of IGrouping(Of String, Card))
+        Dim Kicker As New Card
+        Dim pair1Rank As String
+        Dim pair2Rank As String
+        Dim Pair1 As New List(Of Card)
+        Dim Pair2 As New List(Of Card)
+        For Each Hand In WinnerHands
+            TwoPairGroups = Hand.
+                        GroupBy(Function(card) card.Rank).
+        Where(Function(group) group.Count() = 2).
+        OrderByDescending(Function(group) group.Key)
+            TwoPairGroups = TwoPairGroups.OrderByDescending(Function(group) CardValues(group.Key(0)))
+            pair1Rank = TwoPairGroups.First().Key
+            pair2Rank = TwoPairGroups.Skip(1).First().Key
+            Kicker = Hand.First(Function(card) card.Rank <> pair1Rank AndAlso card.Rank <> pair2Rank)
+            Pair1 = TwoPairGroups.First().ToList()
+            Pair2 = TwoPairGroups.Skip(1).First().ToList()
+            If Pair1(0).Value > HighestPairVal Then
+                HighestPairVal = Pair1(0).Value
+                SecondHighestPairVal = Pair2(0).Value
+                HighestKickerVal = Kicker.Value
+                WinningHand.Clear()
+                WinningHand.Add(Hand)
+            ElseIf Pair1(0).Value = HighestPairVal Then
+                If Pair2(0).Value > SecondHighestPairVal Then
+                    HighestPairVal = Pair1(0).Value
+                    SecondHighestPairVal = Pair2(0).Value
+                    HighestKickerVal = Kicker.Value
+                    WinningHand.Clear()
+                    WinningHand.Add(Hand)
+                ElseIf Pair2(0).Value = SecondHighestPairVal Then
+                    If Kicker.Value > HighestKickerVal Then
+                        HighestPairVal = Pair1(0).Value
+                        SecondHighestPairVal = Pair2(0).Value
+                        HighestKickerVal = Kicker.Value
+                        WinningHand.Clear()
+                        WinningHand.Add(Hand)
+                    ElseIf Kicker.Value = HighestKickerVal Then
+                        WinningHand.Add(Hand)
+                    End If
+                End If
+            End If
+        Next
+    End Sub
+    Public Shared Sub GetBestOnePair(WinnerHands As List(Of List(Of Card)), ByRef WinningHand As List(Of List(Of Card)), ByRef HighestPairVal As Integer, ByRef HighestKickerVal As Integer, ByRef SecondHighestKickerVal As Integer, ByRef ThirdHighestKickerVal As Integer)
+        'Highest pair wins, if that is the same the kicker cards are used
+        Dim Pair As New List(Of Card)
+        Dim NonPairs As New List(Of Card)
+        Dim HighestKicker, SecondHighestKicker, ThirdHighestKicker As New Card
+        For Each Hand In WinnerHands
+            Pair = Hand.GroupBy(Function(card) card.Rank).
+                        OrderByDescending(Function(group) group.Count).
+                        Where(Function(group) group.Count() = 2).
+                        SelectMany(Function(group) group).ToList()
+            NonPairs = Hand.Except(Pair).ToList()
+            SortCards(NonPairs)
+            HighestKicker = NonPairs(2)
+            SecondHighestKicker = NonPairs(1)
+            ThirdHighestKicker = NonPairs(0)
+            If Pair(0).Value > HighestPairVal Then
+                HighestPairVal = Pair(0).Value
+                HighestKickerVal = HighestKicker.Value
+                SecondHighestKickerVal = SecondHighestKicker.Value
+                ThirdHighestKickerVal = ThirdHighestKicker.Value
+                WinningHand.Clear()
+                WinningHand.Add(Hand)
+            ElseIf Pair(0).Value = HighestPairVal Then
+                If HighestKicker.Value > HighestKickerVal Then
+                    HighestPairVal = Pair(0).Value
+                    HighestKickerVal = HighestKicker.Value
+                    SecondHighestKickerVal = SecondHighestKicker.Value
+                    ThirdHighestKickerVal = ThirdHighestKicker.Value
+                    WinningHand.Clear()
+                    WinningHand.Add(Hand)
+                ElseIf HighestKicker.Value = HighestKickerVal Then
+                    If SecondHighestKicker.Value > SecondHighestKickerVal Then
+                        HighestPairVal = Pair(0).Value
+                        HighestKickerVal = HighestKicker.Value
+                        SecondHighestKickerVal = SecondHighestKicker.Value
+                        ThirdHighestKickerVal = ThirdHighestKicker.Value
+                        WinningHand.Clear()
+                        WinningHand.Add(Hand)
+                    ElseIf SecondHighestKicker.Value = SecondHighestKickerVal Then
+                        If ThirdHighestKicker.Value > ThirdHighestKickerVal Then
+                            HighestPairVal = Pair(0).Value
+                            HighestKickerVal = HighestKicker.Value
+                            SecondHighestKickerVal = SecondHighestKicker.Value
+                            ThirdHighestKickerVal = ThirdHighestKicker.Value
+                            WinningHand.Clear()
+                            WinningHand.Add(Hand)
+                        ElseIf ThirdHighestKicker.Value = ThirdHighestKickerVal Then
+                            WinningHand.Add(Hand)
+                        End If
+                    End If
+                End If
+            End If
+        Next
+    End Sub
+    Public Shared Sub GetBestHighCard(WinnerHands As List(Of List(Of Card)), ByRef WinningHand As List(Of List(Of Card)), ByRef HighestCardValue As Integer, ByRef SecondHighestCardValue As Integer, ByRef ThirdHighestCardValue As Integer, ByRef FourthHighestCardValue As Integer, ByRef FifthHighestCardValue As Integer)
+        'highest card wins, if that is the same the second highest wins and so on
+        For Each Hand In WinnerHands
+            If Hand(HighestCard).Value > HighestCardValue Then
+                HighestCardValue = Hand(HighestCard).Value
+                SecondHighestCardValue = Hand(SecondHighestCard).Value
+                ThirdHighestCardValue = Hand(ThirdHighestCard).Value
+                FourthHighestCardValue = Hand(FourthHighestCard).Value
+                FifthHighestCardValue = Hand(FifthHighestCard).Value
+                WinningHand.Clear()
+                WinningHand.Add(Hand)
+            ElseIf Hand(HighestCard).Value = HighestCardValue Then
+                If Hand(SecondHighestCard).Value > SecondHighestCardValue Then
+                    HighestCardValue = Hand(HighestCard).Value
+                    SecondHighestCardValue = Hand(SecondHighestCard).Value
+                    ThirdHighestCardValue = Hand(ThirdHighestCard).Value
+                    FourthHighestCardValue = Hand(FourthHighestCard).Value
+                    FifthHighestCardValue = Hand(FifthHighestCard).Value
+                    WinningHand.Clear()
+                    WinningHand.Add(Hand)
+                ElseIf Hand(SecondHighestCard).Value = SecondHighestCardValue Then
+                    If Hand(ThirdHighestCard).Value > ThirdHighestCardValue Then
+                        HighestCardValue = Hand(HighestCard).Value
+                        SecondHighestCardValue = Hand(SecondHighestCard).Value
+                        ThirdHighestCardValue = Hand(ThirdHighestCard).Value
+                        FourthHighestCardValue = Hand(FourthHighestCard).Value
+                        FifthHighestCardValue = Hand(FifthHighestCard).Value
+                        WinningHand.Clear()
+                        WinningHand.Add(Hand)
+                    ElseIf Hand(ThirdHighestCard).Value = ThirdHighestCardValue Then
+                        If Hand(FourthHighestCard).Value > FourthHighestCardValue Then
+                            HighestCardValue = Hand(HighestCard).Value
+                            SecondHighestCardValue = Hand(SecondHighestCard).Value
+                            ThirdHighestCardValue = Hand(ThirdHighestCard).Value
+                            FourthHighestCardValue = Hand(FourthHighestCard).Value
+                            FifthHighestCardValue = Hand(FifthHighestCard).Value
+                            WinningHand.Clear()
+                            WinningHand.Add(Hand)
+                        ElseIf Hand(FourthHighestCard).Value = FourthHighestCardValue Then
+                            If Hand(FifthHighestCard).Value > FifthHighestCardValue Then
+                                HighestCardValue = Hand(HighestCard).Value
+                                SecondHighestCardValue = Hand(SecondHighestCard).Value
+                                ThirdHighestCardValue = Hand(ThirdHighestCard).Value
+                                FourthHighestCardValue = Hand(FourthHighestCard).Value
+                                FifthHighestCardValue = Hand(FifthHighestCard).Value
+                                WinningHand.Clear()
+                                WinningHand.Add(Hand)
+                            ElseIf Hand(FifthHighestCard).Value = FifthHighestCardValue Then
+                                WinningHand.Add(Hand)
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        Next
+    End Sub
     'Generating a list of lists containing the combinations of the given list of r length
     Public Shared Function Combinations(iterable As List(Of Card), r As Integer) As List(Of List(Of Card))
         Dim result As New List(Of List(Of Card))(21)
@@ -1187,34 +1091,50 @@ Public Class Game_Interface
         Return result
     End Function
     Public Shared Sub SortPlayers(list As List(Of Player))
+        'Merge sort
+        'Code for sorting a list of players by handvalue (ascending order so best hands are at the beginning)
+        'Only does something if the given list is longer than 1 player
         If list.Count > 1 Then
+            'Splits the input list into 2
             Dim MiddleOfList As Integer = list.Count \ 2
             Dim LeftList As New List(Of Player)
             Dim RightList As New List(Of Player)
-
             For Player = 0 To MiddleOfList - 1
                 LeftList.Add(list(Player))
             Next
             For Player = MiddleOfList To list.Count - 1
                 RightList.Add(list(Player))
             Next
+            'Recursion
+            'Do the sort algorithm on the first half
             SortPlayers(LeftList)
+            'Do the sort algorithm on the second half
             SortPlayers(RightList)
-
+            'After this the first half of list and second half of the list are sorted
+            'Merge
+            'Left most element in left list
             Dim i As Integer = 0
+            'Left most element in right list
             Dim j As Integer = 0
+            'Left most element in merged list
             Dim k As Integer = 0
-            While i < LeftList.Count And j < RightList.Count
+            'Compares the handvalue at i in the left list with the handvalue at j in the right list
+            'If the handvalue in the left list is smaller we put that player first in the merged list
+            While i < LeftList.Count AndAlso j < RightList.Count
                 If LeftList(i).HandValue < RightList(j).HandValue Then
                     list(k) = LeftList(i)
+                    'Move onto the next items in the respective lists
                     i += 1
                     k += 1
                 Else
                     list(k) = RightList(j)
+                    'Move onto the next items in the respective lists
                     j += 1
                     k += 1
                 End If
             End While
+            'If we have transferred everything from the right list and there are still players in the left list
+            'We transfer everything from the left list into the merged list
             While i < LeftList.Count
                 list(k) = LeftList(i)
                 k += 1
@@ -1255,15 +1175,15 @@ Public Class Game_Interface
             Dim j As Integer = 0
             'Left most element in merged list
             Dim k As Integer = 0
-            While i < LeftList.Count And j < RightList.Count
+            While i < LeftList.Count AndAlso j < RightList.Count
                 'Compares the value of the card at i in the left list with the value of the card at j in the right list
-                'If the value of the card in the left array is smaller we put that card first in the merged array
+                'If the value of the card in the left list is smaller we put that card first in the merged list
                 If LeftList(i).Value < RightList(j).Value Then
                     list(k) = LeftList(i)
                     'Move onto the next items in the respective lists
                     i += 1
                     k += 1
-                    'If the value of the card in the right array is smaller we put that card first in the merged array
+                    'If the value of the card in the right list is smaller we put that card first in the merged list
                 Else
                     list(k) = RightList(j)
                     'Move onto the next items in the respective lists
@@ -1271,8 +1191,8 @@ Public Class Game_Interface
                     k += 1
                 End If
             End While
-            'If we have transferred everything from the right array and there are still cards in the left array
-            'We transfer everything from the left array into the merged array
+            'If we have transferred everything from the right list and there are still cards in the left list
+            'We transfer everything from the left array into the merged list
             While i < LeftList.Count
                 list(k) = LeftList(i)
                 k += 1
@@ -1286,6 +1206,33 @@ Public Class Game_Interface
             End While
         End If
     End Sub
+    Public Shared ReadOnly pokerHandValues As New Dictionary(Of Integer, String) From {
+        {1, "Royal Flush"},
+        {2, "Straight Flush"},
+        {3, "Four of a Kind"},
+        {4, "Full House"},
+        {5, "Flush"},
+        {6, "Straight"},
+        {7, "Three of a Kind"},
+        {8, "Two Pair"},
+        {9, "One Pair"},
+        {10, "High Card"}
+    }
+    Public Shared ReadOnly CardValues As New Dictionary(Of String, Integer) From {
+        {"2", 2},
+        {"3", 3},
+        {"4", 4},
+        {"5", 5},
+        {"6", 6},
+        {"7", 7},
+        {"8", 8},
+        {"9", 9},
+        {"1", 10},
+        {"J", 11},
+        {"Q", 12},
+        {"K", 13},
+        {"A", 14}
+    }
     Public Class Card
         Private stSuit As String
         Private stRank As String
@@ -1298,7 +1245,6 @@ Public Class Game_Interface
                 Else
                     stRank = value
                 End If
-
             End Set
             Get
                 Return stRank
@@ -1312,7 +1258,6 @@ Public Class Game_Interface
                 Else
                     stSuit = value
                 End If
-
             End Set
             Get
                 Return stSuit
@@ -1363,7 +1308,6 @@ Public Class Game_Interface
             Next
             Shuffle()
         End Sub
-
         Function Shuffle()
             'FIsher yates algorithm
             Dim temp As Card
@@ -1485,7 +1429,6 @@ Public Class Game_Interface
             Set(value As Integer)
                 If value > 500 Or value < 0 Then
                     MsgBox("Chips were set to an invalid amount")
-                    End
                 Else
                     intChips = value
                 End If
@@ -1601,12 +1544,14 @@ Public Class Game_Interface
             End If
         End Sub
         Protected Shared Sub CheckRoyalFlush(Hand As List(Of Card), FirstCardSuit As String, ByRef RoyalFlushHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
+            'If all the cards have a higher value than 10 and have the same suit its a royal flush
             If Hand.All(Function(card) card.Suit = FirstCardSuit AndAlso card.Value >= 10) Then
                 RoyalFlushHands.Add(Hand)
                 valueOfHand = 1
             End If
         End Sub
         Protected Shared Sub CheckStraightFlush(Hand As List(Of Card), FirstCardSuit As String, ByRef StraightFlushHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
+            'If the card after is 1 higher in value than the card before for all the cards and all the suits are the same its a straight flush
             If valueOfHand > 1 Then
                 'Need to check if the last card is the same as the first because it wont be correct otherwise
                 If FirstCardSuit = Hand(4).Suit Then
@@ -1632,6 +1577,7 @@ Public Class Game_Interface
             End If
         End Sub
         Protected Shared Sub CheckFourOf(Hand As List(Of Card), ByRef FourOfAKindHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
+            'If there is a group of 4 cards with the same rank its a four of a kind
             If valueOfHand > 2 Then
                 If Hand.
                     GroupBy(Function(card) card.Rank).
@@ -1645,8 +1591,7 @@ Public Class Game_Interface
         End Sub
         Protected Shared Sub CheckFullHouse(Hand As List(Of Card), ByRef FullHouseHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
             'Groups the cards by rank
-            'Orders them into 3,2 list of cards
-            'If the first group has 3 cards and the second group has 2 cards and in each group they have the same suit
+            'If the first group has 3 cards and the second group has 2 cards and in each group
             'It is a full House
             If valueOfHand > 3 AndAlso Hand.GroupBy(Function(card) card.Rank).
         OrderByDescending(Function(group) group.Count()).
@@ -1660,12 +1605,14 @@ Public Class Game_Interface
             End If
         End Sub
         Protected Shared Sub CheckFlush(Hand As List(Of Card), FirstCardSuit As String, ByRef FlushHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
+            'If all the cards have the same suits its a flush
             If valueOfHand > 4 AndAlso Hand.All(Function(card) card.Suit = FirstCardSuit) Then
                 valueOfHand = 5
                 FlushHands.Add(Hand)
             End If
         End Sub
         Protected Shared Sub CheckStraight(Hand As List(Of Card), ByRef StraightHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
+            'If the card after is 1 higher than the card before for all the cards its a straight
             If valueOfHand > 5 Then
                 Dim StraightConditionMetCounter = 0
                 For Card = 0 To Hand.Count - 2
@@ -1688,6 +1635,7 @@ Public Class Game_Interface
             End If
         End Sub
         Protected Shared Sub CheckThreeOf(Hand As List(Of Card), ByRef ThreeOfAKindHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
+            'If there is a group of three cards with the same rank it's a three of a kind
             If valueOfHand > 6 Then
                 If Hand.
                     GroupBy(Function(card) card.Rank).
@@ -1700,6 +1648,7 @@ Public Class Game_Interface
             End If
         End Sub
         Protected Shared Sub CheckTwoPair(Hand As List(Of Card), ByRef TwoPairHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
+            'If there are 2 groups of 2 cards with the same rank it's a two pair
             If valueOfHand > 7 Then
                 If Hand.
                    GroupBy(Function(card) card.Rank).
@@ -1713,6 +1662,7 @@ Public Class Game_Interface
             End If
         End Sub
         Protected Shared Sub CheckOnePair(Hand As List(Of Card), ByRef OnePairHands As List(Of List(Of Card)), ByRef valueOfHand As Integer)
+            'If there is a group of 2 cards with the same rank its a one pair
             If valueOfHand > 8 Then
                 If Hand.
                   GroupBy(Function(card) card.Rank).
@@ -1724,6 +1674,7 @@ Public Class Game_Interface
             End If
         End Sub
         Protected Shared Sub CheckHighCard(Hand As List(Of Card), ByRef HighestCardHand As List(Of Card), ByRef valueOfHand As Integer, ByRef HighestCardValue As Integer, ByRef SecondHighestCardValue As Integer, ByRef ThirdHighestCardValue As Integer, ByRef FourthHighestCardValue As Integer, ByRef FifthHighestCardValue As Integer)
+            'The best high card beats all the other high cards on value on a card by card basis starting with the highest card
             If valueOfHand > 9 AndAlso Hand(HighestCard).Value > HighestCardValue Then
                 HighestCardValue = Hand(HighestCard).Value
                 SecondHighestCardValue = Hand(SecondHighestCard).Value
@@ -1732,7 +1683,6 @@ Public Class Game_Interface
                 FifthHighestCardValue = Hand(FifthHighestCard).Value
                 HighestCardHand = Hand
                 valueOfHand = 10
-
             ElseIf valueOfHand > 9 AndAlso Hand(HighestCard).Value = HighestCardValue Then
                 If Hand(SecondHighestCard).Value > HighestCardHand(SecondHighestCard).Value Then
                     HighestCardValue = Hand(HighestCard).Value
@@ -1741,7 +1691,6 @@ Public Class Game_Interface
                     FourthHighestCardValue = Hand(FourthHighestCard).Value
                     FifthHighestCardValue = Hand(FifthHighestCard).Value
                     HighestCardHand = Hand
-
                 ElseIf Hand(SecondHighestCard).Value = HighestCardHand(SecondHighestCard).Value Then
                     If Hand(ThirdHighestCard).Value > HighestCardHand(ThirdHighestCard).Value Then
                         HighestCardValue = Hand(HighestCard).Value
@@ -1750,7 +1699,6 @@ Public Class Game_Interface
                         FourthHighestCardValue = Hand(FourthHighestCard).Value
                         FifthHighestCardValue = Hand(FifthHighestCard).Value
                         HighestCardHand = Hand
-
                     ElseIf Hand(ThirdHighestCard).Value = HighestCardHand(ThirdHighestCard).Value Then
                         If Hand(FourthHighestCard).Value > HighestCardHand(FourthHighestCard).Value Then
                             HighestCardValue = Hand(HighestCard).Value
@@ -1759,7 +1707,6 @@ Public Class Game_Interface
                             FourthHighestCardValue = Hand(FourthHighestCard).Value
                             FifthHighestCardValue = Hand(FifthHighestCard).Value
                             HighestCardHand = Hand
-
                         ElseIf Hand(FourthHighestCard).Value = HighestCardHand(FourthHighestCard).Value Then
                             If Hand(FifthHighestCard).Value > HighestCardHand(FifthHighestCard).Value Then
                                 HighestCardValue = Hand(HighestCard).Value
@@ -1774,262 +1721,12 @@ Public Class Game_Interface
                 End If
             End If
         End Sub
-
-        Protected Sub GetBestStraightFlush(StraightFlushHands As List(Of List(Of Card)), ByRef HighestValue As Integer)
-            For pos = 0 To StraightFlushHands.Count - 1
-                If StraightFlushHands(pos)(HighestCard).Value > HighestValue Then
-                    _BestHand = StraightFlushHands(pos)
-                    HighestValue = StraightFlushHands(pos)(HighestCard).Value
-                End If
-            Next
-        End Sub
-        Protected Sub GetBestFourOf(FourOfAKindHands As List(Of List(Of Card)), ByRef HighestKind As Integer, ByRef HighestKicker As Integer)
-            Dim FourOfAKindGroup As List(Of Card)
-            Dim KickerCard As New Card
-            For Each list In FourOfAKindHands
-                FourOfAKindGroup = list.GroupBy(Function(card) card.Rank).
-                    OrderByDescending(Function(group) group.Count).
-                    First().
-                    ToList()
-                KickerCard = list.Except(FourOfAKindGroup).Single
-                If FourOfAKindGroup(0).Value > HighestKind Then
-                    HighestKind = FourOfAKindGroup(0).Value
-                    _BestHand = list
-                ElseIf FourOfAKindGroup(0).Value = HighestKind Then
-                    If KickerCard.Value > HighestKicker Then
-                        HighestKicker = KickerCard.Value
-                        _BestHand = list
-                    End If
-                End If
-            Next
-        End Sub
-        Protected Sub GetBestFullHouse(FullHouseHands As List(Of List(Of Card)), ByRef Highest3 As Integer, ByRef Highest2 As Integer)
-            Dim ThreeOfKind As New List(Of Card)
-            Dim TwoOfKind As New List(Of Card)
-            For Each list In FullHouseHands
-                ThreeOfKind = list.GroupBy(Function(card) card.Rank).
-                    OrderByDescending(Function(group) group.Count).
-                    First().
-                    ToList()
-                If ThreeOfKind(0).Value > Highest3 Then
-                    Highest3 = ThreeOfKind(0).Value
-                    _BestHand = list
-                ElseIf ThreeOfKind(0).Value = Highest3 Then
-                    TwoOfKind = list.Except(ThreeOfKind).ToList
-                    If TwoOfKind(0).Value > Highest2 Then
-                        Highest2 = TwoOfKind(0).Value
-                        _BestHand = list
-                    End If
-                End If
-            Next
-        End Sub
-        Protected Sub GetBestFlush(FlushHands As List(Of List(Of Card)), ByRef HighestValue As Integer, ByRef SecondHighestValue As Integer, ByRef ThirdHighestValue As Integer, ByRef FourthHighestValue As Integer, ByRef FifthHighestValue As Integer)
-            For Each list In FlushHands
-                If list(HighestCard).Value > HighestValue Then
-                    HighestValue = list(HighestCard).Value
-                    SecondHighestValue = list(SecondHighestCard).Value
-                    ThirdHighestValue = list(ThirdHighestCard).Value
-                    FourthHighestValue = list(FourthHighestCard).Value
-                    FifthHighestValue = list(FifthHighestCard).Value
-                    _BestHand = list
-
-                ElseIf list(HighestCard).Value = HighestValue Then
-                    If list(SecondHighestCard).Value > SecondHighestValue Then
-                        HighestValue = list(HighestCard).Value
-                        SecondHighestValue = list(SecondHighestCard).Value
-                        ThirdHighestValue = list(ThirdHighestCard).Value
-                        FourthHighestValue = list(FourthHighestCard).Value
-                        FifthHighestValue = list(FifthHighestCard).Value
-                        _BestHand = list
-
-                    ElseIf list(SecondHighestCard).Value = SecondHighestValue Then
-                        If list(ThirdHighestCard).Value > ThirdHighestValue Then
-                            HighestValue = list(HighestCard).Value
-                            SecondHighestValue = list(SecondHighestCard).Value
-                            ThirdHighestValue = list(ThirdHighestCard).Value
-                            FourthHighestValue = list(FourthHighestCard).Value
-                            FifthHighestValue = list(FifthHighestCard).Value
-                            _BestHand = list
-
-                        ElseIf list(ThirdHighestCard).Value = ThirdHighestValue Then
-                            If list(FourthHighestCard).Value > FourthHighestValue Then
-                                HighestValue = list(HighestCard).Value
-                                SecondHighestValue = list(SecondHighestCard).Value
-                                ThirdHighestValue = list(ThirdHighestCard).Value
-                                FourthHighestValue = list(FourthHighestCard).Value
-                                FifthHighestValue = list(FifthHighestCard).Value
-                                _BestHand = list
-
-                            ElseIf list(FourthHighestCard).Value = FourthHighestValue Then
-                                If list(FifthHighestCard).Value > FifthHighestValue Then
-                                    HighestValue = list(HighestCard).Value
-                                    SecondHighestValue = list(SecondHighestCard).Value
-                                    ThirdHighestValue = list(ThirdHighestCard).Value
-                                    FourthHighestValue = list(FourthHighestCard).Value
-                                    FifthHighestValue = list(FifthHighestCard).Value
-                                    _BestHand = list
-                                End If
-                            End If
-                        End If
-                    End If
-                End If
-            Next
-        End Sub
-        Protected Sub GetBestStraight(StraightHands As List(Of List(Of Card)), ByRef HighestValue As Integer)
-            For pos = 0 To StraightHands.Count - 1
-                If StraightHands(pos)(HighestCard).Value > HighestValue Then
-                    HighestValue = StraightHands(pos)(HighestCard).Value
-                    _BestHand = StraightHands(pos)
-                End If
-            Next
-        End Sub
-        Protected Sub GetBestThreeOf(ThreeOfAKindHands As List(Of List(Of Card)), ByRef Highest3Value As Integer, ByRef HighestKicker As Integer, ByRef SecondHighestKicker As Integer, ByRef HighestKickerCard As Card, ByRef SecondHighestKickerCard As Card)
-            Dim ThreeOfKindCards As List(Of Card)
-            Dim KickerCards As List(Of Card)
-            For pos = 0 To ThreeOfAKindHands.Count - 1
-                ThreeOfKindCards = ThreeOfAKindHands(pos).
-                    GroupBy(Function(card) card.Rank).
-    OrderByDescending(Function(group) group.Count).
-    Where(Function(group) group.Count() >= 3).
-    SelectMany(Function(group) group.Take(3)).
-    ToList()
-                KickerCards = ThreeOfAKindHands(pos).Except(ThreeOfKindCards).ToList()
-                SortCards(KickerCards)
-
-                If ThreeOfKindCards(0).Value > Highest3Value Then
-                    Highest3Value = ThreeOfKindCards(0).Value
-                    HighestKickerCard = KickerCards(1)
-                    HighestKicker = HighestKickerCard.Value
-                    SecondHighestKickerCard = KickerCards(0)
-                    SecondHighestKicker = KickerCards(0).Value
-                    _BestHand = ThreeOfAKindHands(pos)
-
-                ElseIf ThreeOfKindCards(0).Value = Highest3Value Then
-                    If KickerCards(1).Value > HighestKicker Then
-                        Highest3Value = ThreeOfKindCards(0).Value
-                        HighestKickerCard = KickerCards(1)
-                        HighestKicker = HighestKickerCard.Value
-                        SecondHighestKickerCard = KickerCards(0)
-                        SecondHighestKicker = KickerCards(0).Value
-                        _BestHand = ThreeOfAKindHands(pos)
-
-                    ElseIf KickerCards(1).Value = HighestKicker Then
-                        If KickerCards(0).Value > SecondHighestKicker Then
-                            Highest3Value = ThreeOfKindCards(0).Value
-                            HighestKickerCard = KickerCards(1)
-                            HighestKicker = HighestKickerCard.Value
-                            SecondHighestKickerCard = KickerCards(0)
-                            SecondHighestKicker = KickerCards(0).Value
-                            _BestHand = ThreeOfAKindHands(pos)
-                        End If
-                    End If
-                End If
-            Next
-        End Sub
-        Protected Sub GetBestTwoPair(TwoPairHands As List(Of List(Of Card)), ByRef HighestPairVal As Integer, ByRef SecondHighestPairVal As Integer, ByRef HighestKickerVal As Integer)
-            'Pair1 has the higher pair, Kicker contains the non pair card
-            Dim Pair1 As New List(Of Card)
-            Dim Pair2 As New List(Of Card)
-            Dim TwoPairGroups As IEnumerable(Of IGrouping(Of String, Card))
-            Dim pair1Rank As String
-            Dim pair2Rank As String
-            Dim Kicker As New Card
-
-            For Each Cards In TwoPairHands
-                TwoPairGroups = Cards.
-                    GroupBy(Function(card) card.Rank).
-                    Where(Function(group) group.Count() = 2).
-                    OrderByDescending(Function(group) group.Key)
-                pair1Rank = TwoPairGroups.First().Key
-                pair2Rank = TwoPairGroups.Skip(1).First().Key
-                Kicker = Cards.First(Function(card) card.Rank <> pair1Rank AndAlso card.Rank <> pair2Rank)
-                Pair1 = TwoPairGroups.First().ToList()
-                Pair2 = TwoPairGroups.Skip(1).First().ToList()
-
-                If Pair1(0).Value > HighestPairVal Then
-                    HighestPairVal = Pair1(0).Value
-                    SecondHighestPairVal = Pair2(0).Value
-                    HighestKickerVal = Kicker.Value
-                    _BestHand = Cards
-
-                ElseIf Pair1(0).Value = HighestPairVal Then
-                    If Pair2(0).Value > SecondHighestPairVal Then
-                        HighestPairVal = Pair1(0).Value
-                        SecondHighestPairVal = Pair2(0).Value
-                        HighestKickerVal = Kicker.Value
-                        _BestHand = Cards
-
-                    ElseIf Pair2(0).Value = SecondHighestPairVal Then
-                        If Kicker.Value > HighestKickerVal Then
-                            HighestPairVal = Pair1(0).Value
-                            SecondHighestPairVal = Pair2(0).Value
-                            HighestKickerVal = Kicker.Value
-                            _BestHand = Cards
-                        End If
-                    End If
-                End If
-            Next
-        End Sub
-        Protected Sub GetBestOnePair(OnePairHands As List(Of List(Of Card)), ByRef HighestPairVal As Integer, ByRef HighestKickerVal As Integer, ByRef SecondHighestKickerVal As Integer, ByRef ThirdHighestKickerVal As Integer)
-            Dim Pair As New List(Of Card)
-            Dim NonPairs As New List(Of Card)
-            Dim HighestKicker, SecondHighestKicker, ThirdHighestKicker As New Card
-            For cards = 0 To OnePairHands.Count - 1
-                Pair = OnePairHands(cards).
-                    GroupBy(Function(card) card.Rank).
-                    OrderByDescending(Function(group) group.Count).
-                    Where(Function(group) group.Count() = 2).
-                    SelectMany(Function(group) group).
-                    ToList()
-                NonPairs = OnePairHands(cards).Except(Pair).ToList
-                SortCards(NonPairs)
-
-                HighestKicker = NonPairs(2)
-                SecondHighestKicker = NonPairs(1)
-                ThirdHighestKicker = NonPairs(0)
-
-                If Pair(0).Value > HighestPairVal Then
-                    HighestPairVal = Pair(0).Value
-                    HighestKickerVal = HighestKicker.Value
-                    SecondHighestKickerVal = SecondHighestKicker.Value
-                    ThirdHighestKickerVal = ThirdHighestKicker.Value
-                    _BestHand = OnePairHands(cards)
-
-                ElseIf Pair(0).Value = HighestPairVal Then
-                    If HighestKicker.Value > HighestKickerVal Then
-                        HighestPairVal = Pair(0).Value
-                        HighestKickerVal = HighestKicker.Value
-                        SecondHighestKickerVal = SecondHighestKicker.Value
-                        ThirdHighestKickerVal = ThirdHighestKicker.Value
-                        _BestHand = OnePairHands(cards)
-
-                    ElseIf HighestKicker.Value = HighestKickerVal Then
-                        If SecondHighestKicker.Value > SecondHighestKickerVal Then
-                            HighestPairVal = Pair(0).Value
-                            HighestKickerVal = HighestKicker.Value
-                            SecondHighestKickerVal = SecondHighestKicker.Value
-                            ThirdHighestKickerVal = ThirdHighestKicker.Value
-                            _BestHand = OnePairHands(cards)
-
-                        ElseIf SecondHighestKicker.Value = SecondHighestKickerVal Then
-                            If ThirdHighestKicker.Value > ThirdHighestKickerVal Then
-                                HighestPairVal = Pair(0).Value
-                                HighestKickerVal = HighestKicker.Value
-                                SecondHighestKickerVal = SecondHighestKicker.Value
-                                ThirdHighestKickerVal = ThirdHighestKicker.Value
-                                _BestHand = OnePairHands(cards)
-                            End If
-                        End If
-                    End If
-                End If
-            Next
-        End Sub
         Public Sub EvaluateHand(CommunityCards As List(Of Card))
             'So if its any type of hand it will be picked up by this condition
             Dim valueOfHand As Integer = 11
             Dim PossibleCards As List(Of Card)
             'Adds the 2 lists together
-            PossibleCards = _HoleCards.Concat(CommunityCards).ToList
+            PossibleCards = _HoleCards.Concat(CommunityCards).ToList()
             Dim HighestCardValue As Integer = -1
             Dim SecondHighestCardValue As Integer = -1
             Dim ThirdHighestCardValue As Integer = -1
@@ -2047,7 +1744,6 @@ Public Class Game_Interface
             Dim OnePairHands As New List(Of List(Of Card))
             Dim HandCombinations As List(Of List(Of Card))
             HandCombinations = Combinations(PossibleCards, 5)
-
             'Looping through each hand possibillity
             For Possibillty = 0 To HandCombinations.Count - 1
                 SortCards(HandCombinations(Possibillty))
@@ -2069,48 +1765,21 @@ Public Class Game_Interface
                     'Doesnt matter which hand we add because if its a royal flush it wins or ties no matter what
                     _BestHand = RoyalFlushHands(0)
                 Case 2
-                    Dim HighestValue As Integer = 0
-                    GetBestStraightFlush(StraightFlushHands, HighestValue)
+                    _BestHand = Tiebreak(StraightFlushHands, intHandValue)(0)
                 Case 3
-                    Dim HighestKind As Integer = 0
-                    Dim HighestKicker As Integer = 0
-                    GetBestFourOf(FourOfAKindHands, HighestKind, HighestKicker)
+                    _BestHand = Tiebreak(FourOfAKindHands, intHandValue)(0)
                 Case 4
-                    Dim Highest3 As Integer = 0
-                    Dim Highest2 As Integer = 0
-                    GetBestFullHouse(FullHouseHands, Highest3, Highest2)
+                    _BestHand = Tiebreak(FullHouseHands, intHandValue)(0)
                 Case 5
-                    'Meaning the value of the highest card, second highest card etc etc
-                    Dim HighestValue As Integer = 0
-                    Dim FifthHighestValue As Integer = 0
-                    Dim SecondHighestValue As Integer = 0
-                    Dim ThirdHighestValue As Integer = 0
-                    Dim FourthHighestValue As Integer = 0
-                    GetBestFlush(FlushHands, HighestValue, SecondHighestValue, ThirdHighestValue, FourthHighestValue, FifthHighestValue)
+                    _BestHand = Tiebreak(FlushHands, intHandValue)(0)
                 Case 6
-                    Dim HighestValue As Integer = 0
-                    GetBestStraight(StraightHands, HighestValue)
+                    _BestHand = Tiebreak(StraightHands, intHandValue)(0)
                 Case 7
-                    Dim HighestKickerCard As New Card
-                    Dim SecondHighestKickerCard As New Card
-                    Dim Highest3Value As Integer = 0
-                    Dim HighestKicker As Integer = 0
-                    Dim SecondHighestKicker As Integer = 0
-                    GetBestThreeOf(ThreeOfAKindHands, Highest3Value, HighestKicker, SecondHighestKicker, HighestKickerCard, SecondHighestKickerCard)
+                    _BestHand = Tiebreak(ThreeOfAKindHands, intHandValue)(0)
                 Case 8
-                    Dim HighestPairVal As Integer = 0
-                    Dim SecondHighestPairVal As Integer = 0
-                    Dim HighestKickerVal = 0
-                    GetBestTwoPair(TwoPairHands, HighestPairVal, SecondHighestPairVal, HighestKickerVal)
+                    _BestHand = Tiebreak(TwoPairHands, intHandValue)(0)
                 Case 9
-                    Dim Pair As New List(Of Card)
-                    Dim NonPairs As New List(Of Card)
-                    Dim HighestKicker, SecondHighestKicker, ThirdHighestKicker As New Card
-                    Dim HighestPairVal As Integer = 0
-                    Dim HighestKickerVal As Integer = 0
-                    Dim SecondHighestKickerVal As Integer = 0
-                    Dim ThirdHighestKickerVal As Integer = 0
-                    GetBestOnePair(OnePairHands, HighestPairVal, HighestKickerVal, SecondHighestKickerVal, ThirdHighestKickerVal)
+                    _BestHand = Tiebreak(OnePairHands, intHandValue)(0)
                 Case 10
                     _BestHand = HighestCardHand
             End Select
@@ -2123,6 +1792,28 @@ Public Class Game_Interface
         Private OddsOfWin As Double
         Private Bluffing As Boolean
         Private BluffHand As New List(Of Card)
+        'Adjusts the probability of betting, the higher the number, the lower chance of betting when bluffing
+        Const BetProbAdjuster As Integer = 320
+        'Adjusts the probability of calling, the higher the number, the lower chance of betting when bluffing
+        Const CallRaiseAdjuster As Integer = 180
+        'Adjusts the probability of bluffing, the higher number, the higher chance of bluffing
+        Const BluffProbAdjuster As Integer = 20
+        'Adjusts how much of the chips the bot bets, the higher the number the higher amount of chips it bets
+        Const BetAmountAdjuster As Single = 0.7
+        'Adjusts how much of the chips the bot raises, the higher the number the higher amount of chips it raises to
+        Const RaiseAmountAdjuster As Single = 0.25
+        'Adjusts how important the position on the round is, the higher the number the higher importance of being early in the round
+        Const BetChanceMultiplier As Integer = 15
+        'Min amount computers will bet
+        Const MinimumBetAmount As Integer = 5
+        'The higher the number the less impact odds of win has
+        Const BluffThreshold As Integer = 30
+        Const PercentageMultiplier As Integer = 100
+        Const MaxLeniency As Integer = 20
+        Const MidLeniency As Integer = 15
+        Const MinLeniency As Integer = 10
+        'Controls the iterations on the monte carlo simulation
+        Const Iterations As Integer = 5000
         Public Property ComputerChoice As String
             Get
                 Return stComputerChoice
@@ -2144,19 +1835,9 @@ Public Class Game_Interface
             'Takes the last character of their name eg "computer1" and turns the 1 to an integer
             intNumber = Convert.ToInt16(name(name.Length - 1)) - 48
         End Sub
-        Protected Overrides Sub CallBet(ByRef Pot As Integer, ByRef CurrentHighestBet As Integer)
-            MyBase.CallBet(Pot, CurrentHighestBet)
-        End Sub
-        Protected Overrides Sub AllIn(ByRef Pot As Integer, ByRef CurrentHighestBet As Integer)
-            MyBase.AllIn(Pot, CurrentHighestBet)
-        End Sub
+
         Public Overrides Sub ResetAttributes()
-            intCurrentBet = 0
-            _BestHand = New List(Of Card)
-            _HoleCards = New List(Of Card)
-            intHandValue = Nothing
-            boolHasFolded = False
-            boolIsAllIn = False
+            MyBase.ResetAttributes()
             Bluffing = False
             BluffHand = New List(Of Card)
         End Sub
@@ -2172,10 +1853,9 @@ Public Class Game_Interface
                     'If we are bluffing and have little chips bet a random amount between 5 and the max we can bet
                     Amount = Rand.Next(MinimumBetAmount, MaxAmount)
                 End If
-
             Else
-                'We don't want the bots betting too highly so we can take off 50% of their odds of winning and use that amount to bet
-                Amount = OddsOfWin - BluffThreshold / PercentageMultiplier * MaxAmount
+                'We don't want the bots betting too highly so we can take off a percentage of their odds of winning and use that amount to bet
+                Amount = (OddsOfWin - BluffThreshold) / PercentageMultiplier * MaxAmount
             End If
             If Amount >= intChips Then 'Was a case where had negative chips on the showdown
                 MyBase.AllIn(Pot, CurrentHighestBet)
@@ -2193,7 +1873,7 @@ Public Class Game_Interface
         Public Sub GetChoice(CurrentHighestBet As Integer, Pot As Integer, GameState As String, CommunityCards As List(Of Card), Players As Integer, position As Integer)
             Dim Decision As String
             'if they are all in or have put more than or equal the current highest and the current highest bet isnt 0 we skip them
-            If boolIsAllIn OrElse (intCurrentBet >= CurrentHighestBet And CurrentHighestBet <> 0) Then
+            If boolIsAllIn OrElse (intCurrentBet >= CurrentHighestBet AndAlso CurrentHighestBet <> 0) Then
                 Decision = "skip"
             ElseIf HasFolded = True Then
                 Decision = "skip"
@@ -2240,14 +1920,14 @@ Public Class Game_Interface
             End While
         End Sub
         Private Function GetBetCheck(CurrentHighestBet As Integer, Pot As Integer, GameState As String, CommunityCards As List(Of Card), Players As Integer, Position As Integer) As String
-            Dim PotEquity As Double = CurrentHighestBet / (CurrentHighestBet + Pot) * PercentageMultiplier
+            Dim PotOdds As Double = CurrentHighestBet / (CurrentHighestBet + Pot) * PercentageMultiplier
             OddsOfWin = MonteCarlo(CommunityCards, GameState, Players)
             Dim Decision As String
             'The lower the position (the earlier it acts on the round)
-            'The higher its "place" and the higher chance it bets or raises
+            'The higher its "place" and the higher chance it bluffs
             Dim Place As Integer = (Players - Position) * BetChanceMultiplier
-            'If the odds of win is higher than 75%
-            If OddsOfWin > 75 Then
+            'If the odds of win is higher than 50%
+            If OddsOfWin > 50 Then
                 If CurrentHighestBet >= intChips Then
                     Decision = "call"
                 Else
@@ -2256,10 +1936,15 @@ Public Class Game_Interface
             ElseIf Bluffing = True Then
                 Decision = "bet"
             Else
-                'I dont want it to bluff when betting / checking too often
-                If Rand.Next(BetProbAdjuster - Place) <= BluffProbAdjuster Then
-                    Decision = "bet"
-                    Bluffing = True
+                'No bluffing on the river as the computer cant re-raise
+                If GameState <> "River" Then
+                    'I dont want it to bluff when betting / checking too often
+                    If Rand.Next(BetProbAdjuster - Place) <= BluffProbAdjuster Then
+                        Decision = "bet"
+                        Bluffing = True
+                    Else
+                        Decision = "check"
+                    End If
                 Else
                     Decision = "check"
                 End If
@@ -2271,13 +1956,13 @@ Public Class Game_Interface
             OddsOfWin = MonteCarlo(CommunityCards, GameState, Players)
             Dim Decision As String
             Dim Place As Integer = (Players - Position) * BetChanceMultiplier
-            'If the chance of winning is 15% higher than pot odds
-            If OddsOfWin + 15 > PotOdds Then
+            'Pot odds and odds of win work a little differently depending in the code on the situation so GetLeniency attempts to correct it
+            Dim Leniency As Integer = GetLeniency(Position, GameState, Players)
+            If OddsOfWin + Leniency > PotOdds Then
                 Decision = "call"
             Else
-                'No point bluffing on the river if they are not first to act on the round
-                'Maybe there is no point bluffing if they aren't the first to act in any round
-                'Unless the first player checks
+                'No point starting bluffing on the river for now as this version of the bots cant raise
+                'Maybe there is no point bluffing if they aren't the first to act in any round unless the first player checks
                 If GameState <> "Pre-Flop" Then
                     If Rand.Next(CallRaiseAdjuster - Place) <= BluffProbAdjuster Then
                         Bluffing = True
@@ -2287,12 +1972,63 @@ Public Class Game_Interface
                     End If
                 Else
                     Decision = "fold"
-
                 End If
             End If
             Return Decision
         End Function
-
+        Private Function GetLeniency(Position As Integer, GameState As String, Players As Integer) As Integer
+            'As the position gets later the leniency tends to increase
+            'Leniency refers to how "loose" we can be with out decisions
+            'Attempts to correct odds of win calculations on the pre-flop and other rounds using well known ideas about table position
+            Dim Leniency As Integer
+            If Players > 3 Then
+                If GameState = "Pre-Flop" Then
+                    'Last two players
+                    If Position >= 4 Then
+                        Leniency = MaxLeniency
+                    ElseIf Position = 3 Then
+                        Leniency = MidLeniency
+                    Else
+                        Leniency = MinLeniency
+                    End If
+                Else
+                    Leniency = 10
+                End If
+            ElseIf Players = 2 Then
+                If GameState = "Pre-Flop" Then
+                    If Position = 2 Then
+                        Leniency = MaxLeniency
+                    Else
+                        Leniency = MinLeniency
+                    End If
+                Else
+                    Leniency = MinLeniency
+                End If
+            Else 'Players = 3
+                If GameState = "Pre-Flop" Then
+                    If Position = 3 Then
+                        Leniency = MaxLeniency
+                    ElseIf Position = 2 Then
+                        Leniency = MidLeniency
+                    Else
+                        Leniency = MinLeniency
+                    End If
+                Else
+                    If Position = 1 Then
+                        Leniency = MinLeniency
+                    Else
+                        Leniency = MidLeniency
+                    End If
+                End If
+            End If
+            'Suited cards are slightly better
+            If Leniency < MaxLeniency Then
+                If _HoleCards.All(Function(card) card.Suit = _HoleCards(0).Suit) Then
+                    Leniency += 5
+                End If
+            End If
+            Return Leniency
+        End Function
         Private Function FindMonteCarloWinner(Splayers As List(Of Player)) As Integer()
             Dim sOutcomes(2) As Integer
             Dim MyHandValue As Integer = intHandValue
@@ -2301,18 +2037,18 @@ Public Class Game_Interface
             If MyHandValue < BestHandValue Then
                 sOutcomes(0) += 1
             ElseIf MyHandValue = BestHandValue Then
-                Dim Winners As New List(Of Player) From {
-                Me
-            }
+                Dim WinnerHands As New List(Of List(Of Card)) From {
+                    _BestHand
+                }
                 For item = 0 To Splayers.Count - 1
                     If Splayers(item).HandValue = BestHandValue Then
-                        Winners.Add(Splayers(item))
+                        WinnerHands.Add(Splayers(item).BestHand)
                     End If
                 Next
-                Dim Winner As List(Of Player) = Tiebreak(Winners, BestHandValue)
-                If Winner.Contains(Me) AndAlso Winner.Count = 1 Then
+                Dim Winner As List(Of List(Of Card)) = Tiebreak(WinnerHands, BestHandValue)
+                If Winner.Contains(_BestHand) AndAlso Winner.Count = 1 Then
                     sOutcomes(0) += 1
-                ElseIf Winner.Contains(Me) AndAlso Winner.Count <> 1 Then
+                ElseIf Winner.Contains(_BestHand) AndAlso Winner.Count <> 1 Then
                     sOutcomes(2) += 1
                 Else
                     sOutcomes(1) += 1
@@ -2325,25 +2061,19 @@ Public Class Game_Interface
         Private Function SimulatePreFlop(KnownCards As List(Of Card), sPlayers As List(Of Player)) As Integer()
             Dim sCommunityCards As New List(Of Card)
             Dim sDeck As New Deck
-            'Remove the cards we can see as no player can have them
             For Each Card In KnownCards
                 sDeck.RemoveCard(Card)
             Next
-            'Shuffle the simulated deck and deal out cards to simulated players
             sDeck.Shuffle()
             For Each P As Player In sPlayers
                 sDeck.Deal2Cards(P.HoleCards)
             Next
-            'Add 5 community cards to simulate a showdown
             sDeck.Deal2Cards(sCommunityCards)
             sDeck.Deal3Cards(sCommunityCards)
-
-            'Evaluate the hands of all players in simulation
             For Each Player In sPlayers
                 Player.EvaluateHand(sCommunityCards)
             Next
             EvaluateHand(sCommunityCards)
-            'Figure out the best hand
             Dim sOutcomes() As Integer = FindMonteCarloWinner(sPlayers)
             Return sOutcomes
         End Function
@@ -2405,7 +2135,6 @@ Public Class Game_Interface
                     .Name = "sPlayer1"
                 }
                 Splayers.Add(sPlayer1)
-
             ElseIf Players = 3 Then
                 Dim sPlayer1 As New Player With {
                     .Name = "sPlayer1"
@@ -2414,7 +2143,6 @@ Public Class Game_Interface
                     .Name = "Splayer2"}
                 Splayers.Add(sPlayer1)
                 Splayers.Add(Splayer2)
-
             ElseIf Players = 4 Then
                 Dim sPlayer1 As New Player With {
                     .Name = "sPlayer1"
@@ -2426,7 +2154,6 @@ Public Class Game_Interface
                 Splayers.Add(sPlayer1)
                 Splayers.Add(Splayer2)
                 Splayers.Add(Splayer3)
-
             ElseIf Players = 5 Then
                 Dim sPlayer1 As New Player With {
                     .Name = "sPlayer1"
@@ -2456,7 +2183,6 @@ Public Class Game_Interface
                 Bluff(CommunityCards)
                 _HoleCards = BluffHand
             End If
-
             If GameState = "Pre-Flop" Then
                 For num = 1 To Iterations
                     Outcomes = SimulatePreFlop(KnownCards, Splayers)
@@ -2467,7 +2193,6 @@ Public Class Game_Interface
                         P.ResetAttributes()
                     Next
                 Next
-
             ElseIf GameState = "Flop" Then
                 For num = 1 To Iterations
                     Outcomes = SimulateFlop(KnownCards, New List(Of Card)(CommunityCards), Splayers)
@@ -2478,7 +2203,6 @@ Public Class Game_Interface
                         P.ResetAttributes()
                     Next
                 Next
-
             ElseIf GameState = "Turn" Then
                 For num = 1 To Iterations
                     Outcomes = SimulateTurn(KnownCards, New List(Of Card)(CommunityCards), Splayers)
@@ -2489,7 +2213,6 @@ Public Class Game_Interface
                         P.ResetAttributes()
                     Next
                 Next
-
             Else
                 ' GameState = River
                 EvaluateHand(CommunityCards)
@@ -2503,8 +2226,7 @@ Public Class Game_Interface
                     Next
                 Next
             End If
-
-            'Resetting these back to default as simulate() would have changed them
+            'Resetting these back to default as the simulation would have changed them
             _BestHand = New List(Of Card)
             _HoleCards = Temp
             intHandValue = 0
